@@ -110,7 +110,7 @@ async function runDoctor() {
   }
 
   // 5. MCP Gateway Readiness
-  console.log(`  [5/5] MCP Stdio Protocol:       \x1b[32m✓ Configured (4 Tools, 2 Resources)\x1b[0m`);
+  console.log(`  [5/5] MCP Stdio Protocol:       \x1b[32m✓ Configured (6 Runtime Tools, 2 Resources)\x1b[0m`);
 
   console.log("\n\x1b[32m\x1b[1m✅ All Agent Commons core subsystems operating normally.\x1b[0m\n");
 }
