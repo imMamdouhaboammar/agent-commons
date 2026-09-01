@@ -15,6 +15,10 @@ import { scanAndSanitizeSecrets } from "@agent-commons/security";
 const MAX_OBSERVATIONS = 20;
 const MAX_OBSERVATION_LENGTH = 2_000;
 const MAX_SYNC_LIMIT = 100;
+const MAX_TELEMETRY_BYTES = 16_384;
+const MAX_TELEMETRY_DEPTH = 5;
+const MAX_TELEMETRY_KEYS = 50;
+const MAX_TELEMETRY_ARRAY_ITEMS = 50;
 
 export interface GuardianThreatReportInput {
   violation_class: unknown;
@@ -80,12 +84,79 @@ function parseObservations(value: unknown): string[] {
   );
 }
 
-function parseTelemetry(value: unknown): Record<string, unknown> {
+function recordDetectedTypes(types: string[], detectedSecretTypes: Set<string>): void {
+  for (const secretType of types) {
+    detectedSecretTypes.add(secretType);
+  }
+}
+
+function sanitizeTelemetryValue(
+  value: unknown,
+  detectedSecretTypes: Set<string>,
+  depth: number
+): unknown {
+  if (depth > MAX_TELEMETRY_DEPTH) {
+    throw new Error(`telemetry exceeds maximum depth ${MAX_TELEMETRY_DEPTH}`);
+  }
+
+  if (value === null || typeof value === "boolean" || typeof value === "number") {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const scan = scanAndSanitizeSecrets(value);
+    recordDetectedTypes(scan.detectedTypes, detectedSecretTypes);
+    return scan.sanitizedContent;
+  }
+
+  if (Array.isArray(value)) {
+    if (value.length > MAX_TELEMETRY_ARRAY_ITEMS) {
+      throw new Error(`telemetry array exceeds maximum item count ${MAX_TELEMETRY_ARRAY_ITEMS}`);
+    }
+    return value.map((item) => sanitizeTelemetryValue(item, detectedSecretTypes, depth + 1));
+  }
+
+  if (typeof value === "object") {
+    const entries = Object.entries(value as Record<string, unknown>);
+    if (entries.length > MAX_TELEMETRY_KEYS) {
+      throw new Error(`telemetry object exceeds maximum key count ${MAX_TELEMETRY_KEYS}`);
+    }
+
+    const sanitized: Record<string, unknown> = {};
+    for (const [key, nestedValue] of entries) {
+      const keyScan = scanAndSanitizeSecrets(key);
+      if (keyScan.hasSecrets) {
+        throw new Error("telemetry keys must not contain secrets");
+      }
+      sanitized[key] = sanitizeTelemetryValue(nestedValue, detectedSecretTypes, depth + 1);
+    }
+    return sanitized;
+  }
+
+  throw new Error("telemetry contains unsupported value type");
+}
+
+function sanitizeTelemetry(
+  value: unknown,
+  detectedSecretTypes: Set<string>
+): Record<string, unknown> {
   if (value === undefined || value === null) return {};
   if (typeof value !== "object" || Array.isArray(value)) {
     throw new Error("telemetry must be an object");
   }
-  return value as Record<string, unknown>;
+
+  let serialized: string;
+  try {
+    serialized = JSON.stringify(value);
+  } catch {
+    throw new Error("telemetry must be JSON serializable");
+  }
+
+  if (Buffer.byteLength(serialized, "utf8") > MAX_TELEMETRY_BYTES) {
+    throw new Error(`telemetry exceeds maximum size ${MAX_TELEMETRY_BYTES} bytes`);
+  }
+
+  return sanitizeTelemetryValue(value, detectedSecretTypes, 0) as Record<string, unknown>;
 }
 
 export class GuardianRuntime {
@@ -116,11 +187,10 @@ export class GuardianRuntime {
     for (const observation of observations) {
       const scan = scanAndSanitizeSecrets(observation);
       sanitizedObservations.push(scan.sanitizedContent);
-      for (const secretType of scan.detectedTypes) {
-        detectedSecretTypes.add(secretType);
-      }
+      recordDetectedTypes(scan.detectedTypes, detectedSecretTypes);
     }
 
+    const sanitizedTelemetry = sanitizeTelemetry(input.telemetry, detectedSecretTypes);
     const createdAt = new Date().toISOString();
     const evidencePayload = {
       schema: "agent-evidence/1" as const,
@@ -130,7 +200,7 @@ export class GuardianRuntime {
       targetAgentId,
       reporterDid: this.reporterDid,
       observations: sanitizedObservations,
-      telemetry: parseTelemetry(input.telemetry),
+      telemetry: sanitizedTelemetry,
       createdAt
     };
     const evidenceCid = computeMemoryCID(evidencePayload);
