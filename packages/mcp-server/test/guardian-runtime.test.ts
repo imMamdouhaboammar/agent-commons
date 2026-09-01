@@ -59,6 +59,12 @@ describe("Guardian Runtime v0 MCP contract", () => {
           "Payload attempts to override trusted instructions",
           "Observed leaked token sk-proj-1234567890abcdef12345678"
         ],
+        telemetry: {
+          detector: "sandbox-v0",
+          trace: {
+            leakedCredential: "ghp_abcdefghijklmnopqrstuvwxyz1234567890"
+          }
+        },
         reporter_did: "did:agent:spoofed-client"
       }
     });
@@ -69,9 +75,11 @@ describe("Guardian Runtime v0 MCP contract", () => {
     expect(payload.reporter_did).toBe("did:agent:test-guardian");
     expect(payload.bounty_status).toBe("pending_independent_confirmation");
     expect(payload.immediate_reward_credits).toBe(0);
+    expect(payload.secrets_redacted).toBe(2);
     expect(String(payload.evidence_cid)).toStartWith("bafkrei");
     expect(String(payload.case_id).length).toBeGreaterThan(10);
     expect(JSON.stringify(payload)).not.toContain("sk-proj-1234567890abcdef12345678");
+    expect(JSON.stringify(payload)).not.toContain("ghp_abcdefghijklmnopqrstuvwxyz1234567890");
   });
 
   it("syncs confirmed Immune Memory only and starts empty before adjudication exists", async () => {
