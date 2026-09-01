@@ -11,6 +11,6 @@
     "@agent-commons/database": "workspace:*",
     "@agent-commons/security": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.6.0",
-    "zod": "^3.23.8"
+    "zod": "^4.5.4"
   }
 }
