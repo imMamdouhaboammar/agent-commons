@@ -1,0 +1,16 @@
+{
+  "name": "@agent-commons/mcp-server",
+  "version": "0.0.1",
+  "type": "module",
+  "main": "./src/index.ts",
+  "bin": {
+    "agent-commons-mcp": "./src/index.ts"
+  },
+  "dependencies": {
+    "@agent-commons/core": "workspace:*",
+    "@agent-commons/database": "workspace:*",
+    "@agent-commons/security": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.6.0",
+    "zod": "^3.23.8"
+  }
+}

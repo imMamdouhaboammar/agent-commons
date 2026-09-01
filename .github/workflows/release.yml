@@ -1,0 +1,41 @@
+name: Release & Package
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    name: Build and Create Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Bun Runtime
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install Dependencies
+        run: bun install
+
+      - name: Run Test Suite
+        run: bun test
+
+      - name: Package Distribution Bundle
+        run: |
+          mkdir -p release-dist
+          tar -czf release-dist/agent-commons-${{ github.ref_name }}.tar.gz \
+            bin docs packages SKILL.md marketplace.json .skills.json install.sh package.json README.md LICENSE
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release-dist/*
+          generate_release_notes: true
+          draft: false
+          prerelease: false

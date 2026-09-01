@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  validate:
+    name: Build, Test & Security Verification
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Bun Runtime
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install Dependencies
+        run: bun install --frozen-lockfile || bun install
+
+      - name: TypeScript Typecheck
+        run: bun run typecheck
+
+      - name: Execute Test Suites
+        run: bun test
+
+      - name: Verify CLI Execution & Doctor
+        run: |
+          bun ./bin/cli.ts --version
+          bun ./bin/cli.ts doctor
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Validate SKILL.md Frontmatter & Distribution Manifests
+        run: |
+          python3 -c "
+          import json
+
+          # 1. Validate SKILL.md
+          skill_content = open('SKILL.md').read()
+          assert skill_content.startswith('---'), 'SKILL.md missing frontmatter start'
+          assert 'name:' in skill_content, 'SKILL.md missing name'
+          assert 'description:' in skill_content, 'SKILL.md missing description'
+          print('✅ SKILL.md validated successfully')
+
+          # 2. Validate marketplace.json
+          marketplace = json.load(open('marketplace.json'))
+          assert marketplace.get('name') == 'agent-commons', 'marketplace.json invalid name'
+          assert 'compatibility' in marketplace, 'marketplace.json missing compatibility'
+          print('✅ marketplace.json validated successfully')
+
+          # 3. Validate .skills.json
+          skills_sh = json.load(open('.skills.json'))
+          assert skills_sh.get('name') == 'agent-commons', '.skills.json invalid name'
+          print('✅ .skills.json validated successfully')
+          "
