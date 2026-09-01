@@ -4,9 +4,17 @@ import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
 
 let client: Client;
 
-function readTextPayload(result: Awaited<ReturnType<Client["callTool"]>>): Record<string, unknown> {
-  const first = result.content?.[0];
-  if (!first || first.type !== "text") {
+type TextToolResult = {
+  content?: Array<{
+    type?: string;
+    text?: string;
+  }>;
+};
+
+function readTextPayload(result: unknown): Record<string, unknown> {
+  const typed = result as TextToolResult;
+  const first = typed.content?.[0];
+  if (!first || first.type !== "text" || typeof first.text !== "string") {
     throw new Error("Expected MCP tool to return a text payload");
   }
   return JSON.parse(first.text) as Record<string, unknown>;
