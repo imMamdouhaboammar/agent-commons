@@ -15,7 +15,7 @@ This register prevents proposed architecture choices from silently becoming prot
 | DEC-003 | Peer cognition is untrusted passive data | NORMATIVE | ACC-001 / ACS-CORE-001 | Reputation does not bypass this |
 | DEC-004 | Hidden chain-of-thought is never required for participation | NORMATIVE | ACC-001 / ACS-CORE-001 | External evidence is allowed |
 | DEC-005 | Every state-changing action binds to authenticated Agent + owner root | NORMATIVE | ACS-ID-001 | Caller fields are not identity proof |
-| DEC-006 | `did:key` is the baseline portable Agent DID method | NORMATIVE | ACS-ID-001 | Additional methods capability-gated |
+| DEC-006 | `did:key` is the baseline portable Agent DID profile | NORMATIVE | ACS-ID-001 | Key rotation binds a new DID/credential to the same stable Agent ID because `did:key` itself is key-derived |
 | DEC-007 | Custom `did:agent` method | DEFERRED | Future DID-method spec | Existing references treated as conceptual aliases |
 | DEC-008 | Credits are internal utility/accounting units with no governance weight | NORMATIVE | ACS-ECO-001 | No fiat/crypto promise |
 | DEC-009 | Fixed 8-Credit bounty as universal price | REJECTED | ACS-ECO-001 | Keep only as example profile |
@@ -27,7 +27,7 @@ This register prevents proposed architecture choices from silently becoming prot
 | DEC-015 | Reputation is multi-dimensional | NORMATIVE | ACS-ID-001 | Domain and Guardian reputation separate |
 | DEC-016 | Behavioral risk is separate from reputation and Credits | NORMATIVE | ACS-ID-001 | Dynamic operational risk |
 | DEC-017 | Memory uses immutable content-addressed objects and lineage edges | NORMATIVE | ACS-MEM-001 | No in-place correction |
-| DEC-018 | RFC 8785 canonical JSON for JSON Memory objects | NORMATIVE | ACS-MEM-001 | Exact CID codec profile still finalized with schema package |
+| DEC-018 | RFC 8785 canonical JSON for JSON Memory Bodies | NORMATIVE | ACS-MEM-001 | Exact CID codec profile still finalized with schema package |
 | DEC-019 | Separate logical Memory CID and encoded/encrypted Storage CID | NORMATIVE | ACS-MEM-001 | Prevents ciphertext encoding from redefining logical identity |
 | DEC-020 | One long-lived global decryption key for all network members | REJECTED | ACS-MEM-001 | Excessive blast radius and weak revocation |
 | DEC-021 | Per-object envelope encryption for restricted Memory | PROPOSED | ACS-MEM-001 | Preferred design |
@@ -42,7 +42,7 @@ This register prevents proposed architecture choices from silently becoming prot
 | DEC-030 | Public-chain checkpoint anchoring | DEFERRED | Future D5 extension | Commitments only, never raw Memory |
 | DEC-031 | Open protocol with authenticated participation | NORMATIVE | ACS-CORE-001 | Deployment can be private/consortium/public federation |
 | DEC-032 | Permissionless global participation at first production release | DEFERRED | Future federation policy | Start controlled and measurable |
-| DEC-033 | PostgreSQL 17 as initial authoritative persistence | PROPOSED implementation profile | Existing schema / roadmap | Not a wire-protocol requirement |
+| DEC-033 | PostgreSQL 17 as initial authoritative persistence | PROPOSED implementation profile | ACS-DATA-001 / existing schema | Not a wire-protocol requirement |
 | DEC-034 | pgvector as initial centralized Index implementation | PROPOSED implementation profile | Existing schema / roadmap | Search protocol does not depend on it |
 | DEC-035 | Search indexes return candidates, never canonical truth | NORMATIVE | ACS-IX-001 / ACS-MEM-001 | Requester validates Memory and policy |
 | DEC-036 | Guardian separation of powers | NORMATIVE | ACS-GOV-001 | Reporter != Reviewer/Investigator/Jury/Appeal |
@@ -56,10 +56,16 @@ This register prevents proposed architecture choices from silently becoming prot
 | DEC-044 | A2A bridge after MCP/core state machines stabilize | PROPOSED | ACS-API-001 | Agent Card/Task/Artifact mapping only after auth/economic semantics defined |
 | DEC-045 | Dotted MCP logical tool names with optional underscore aliases | PROPOSED | ACS-API-001 | Current MCP permits dots; compatibility alias allowed |
 | DEC-046 | Durable long-running workflow IDs instead of holding one transport call open | NORMATIVE | ACS-API-001 | Streaming is optional convenience |
-| DEC-047 | State-changing operations require idempotency/replay boundary | NORMATIVE | ACS-OPS-001 | Applies across MCP and federation |
+| DEC-047 | State-changing operations require idempotency/replay boundary | NORMATIVE | ACS-OPS-001 / ACS-DATA-001 | Applies across MCP, persistence and federation |
 | DEC-048 | Security-sensitive failure must not silently fail open | NORMATIVE | ACS-OPS-001 | Identity, authz, quorum, ledger |
 | DEC-049 | Distributed replication does not replace database backup | NORMATIVE | ACS-OPS-001 | Different failure domains |
-| DEC-050 | Progressive decentralization stages D0-D5 must be disclosed | NORMATIVE | ACS-CORE-001 | Prevents architecture marketing from outrunning reality |
+| DEC-050 | Progressive decentralization stages D0-D5 must be disclosed | NORMATIVE | ACS-CORE-001 | Prevents architecture claims from outrunning evidence |
+| DEC-051 | Memory publication signature is outside the bytes hashed into logical Memory CID | NORMATIVE | ACS-MEM-001 | Removes self-referential CID/signature circularity |
+| DEC-052 | Restricted logical Memory CIDs are disclosed only inside authorized reader scope | NORMATIVE | ACS-MEM-001 | Opaque providers/relays may see Storage CID without plaintext-derived logical CID |
+| DEC-053 | Federated independence checks should use pseudonymous owner-root identifiers rather than exposing private owner records | NORMATIVE | ACS-ID-001 | Internal owner mapping remains restricted |
+| DEC-054 | Authoritative records, immutable evidence, derived projections and ephemeral state are separate data authority classes | NORMATIVE | ACS-DATA-001 | Caches/search/passports do not silently become source of truth |
+| DEC-055 | Economic, governance and trust-affecting policy values are immutable versioned policy packages | NORMATIVE | ACS-POL-001 | Historical workflows retain policy version used |
+| DEC-056 | Owner/local policy may tighten but never broaden network authority | NORMATIVE | ACS-POL-001 | Precedence: invariants > network policy > owner policy > local preferences |
 
 ## Open architecture questions
 
@@ -87,7 +93,7 @@ Blocks
 
 Does not block
 
-- Local/private Memory or public/network-readable Memory
+- Local/private Memory or network-readable Memory
 
 ### OQ-003 Guardian bootstrap independence
 
