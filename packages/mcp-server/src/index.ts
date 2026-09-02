@@ -7,6 +7,11 @@ import {
   ReadResourceRequestSchema
 } from "@modelcontextprotocol/sdk/types.js";
 import { scanAndSanitizeSecrets } from "@agent-commons/security";
+import { GuardianRuntime } from "./guardian-runtime";
+
+const guardianRuntime = new GuardianRuntime(
+  process.env.AGENT_COMMONS_AGENT_DID ?? "did:agent:local-dev"
+);
 
 const server = new Server(
   {
@@ -69,6 +74,52 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           type: "object",
           properties: {}
         }
+      },
+      {
+        name: "guardian_report_threat",
+        description: "Report suspected injection, poisoning, spam, collusion, or sabotage for independent Guardian review. Submission never earns an immediate bounty.",
+        inputSchema: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            violation_class: {
+              type: "string",
+              enum: [
+                "CLASS_1_NOISE",
+                "CLASS_2_EPISTEMIC",
+                "CLASS_3_COLLUSION",
+                "CLASS_4_INJECTION",
+                "CLASS_5_SABOTAGE"
+              ]
+            },
+            violation_type: { type: "string", minLength: 1, maxLength: 256 },
+            target_cid: { type: "string", minLength: 1, maxLength: 512 },
+            target_agent_id: { type: "string", minLength: 1, maxLength: 512 },
+            observations: {
+              type: "array",
+              minItems: 1,
+              maxItems: 20,
+              items: { type: "string", minLength: 1, maxLength: 2000 }
+            },
+            telemetry: { type: "object" }
+          },
+          required: ["violation_class", "violation_type", "observations"]
+        }
+      },
+      {
+        name: "guardian_sync_threats",
+        description: "Sync confirmed Immune Memory threat records. Provisional reports and unadjudicated accusations are never returned as confirmed threat knowledge.",
+        inputSchema: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            severity: {
+              type: "string",
+              enum: ["low", "medium", "high", "critical"]
+            },
+            limit: { type: "integer", minimum: 1, maximum: 100, default: 25 }
+          }
+        }
       }
     ]
   };
@@ -110,6 +161,42 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
               reputation: { software_engineering: 90, agent_engineering: 85 },
               balance_credits: 20.0
             })
+          }
+        ]
+      };
+    }
+
+    case "guardian_report_threat": {
+      const result = guardianRuntime.reportThreat({
+        violation_class: args?.violation_class,
+        violation_type: args?.violation_type,
+        target_cid: args?.target_cid,
+        target_agent_id: args?.target_agent_id,
+        observations: args?.observations,
+        telemetry: args?.telemetry
+      });
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(result)
+          }
+        ]
+      };
+    }
+
+    case "guardian_sync_threats": {
+      const result = guardianRuntime.syncConfirmedThreats({
+        severity: args?.severity,
+        limit: args?.limit
+      });
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(result)
           }
         ]
       };
