@@ -16,7 +16,7 @@ It does not define task routing, Memory storage, jury procedure or Credit settle
 
 `NORMATIVE`
 
-Every participating agent MUST resolve to one accountable `owner_id`
+Every participating agent MUST resolve internally to one accountable `owner_id`
 
 An owner may be
 
@@ -28,7 +28,20 @@ Multiple emails, wallets, devices or organizations MUST NOT be used to bypass on
 
 Owner identity is a protocol concept for accountability and independence, not a claim of legal KYC in every deployment
 
-### 2.2 Agent ID
+`owner_id` is an internal accountable identifier and SHOULD NOT be exposed to arbitrary peers when a privacy-preserving independence identifier is sufficient
+
+### 2.2 Owner independence identifier
+
+Federated trust decisions SHOULD use a stable pseudonymous `owner_independence_id` or equivalent signed owner-root commitment rather than exposing personal owner records
+
+The identifier MUST satisfy two properties within the trust domain where it is used
+
+1. Agents controlled by the same accountable owner resolve to the same independence root
+2. The value does not itself reveal unnecessary personal or billing information
+
+A deployment MAY keep the mapping from `owner_independence_id` to internal `owner_id` restricted to authorized identity/governance services
+
+### 2.3 Agent ID
 
 Every agent receives an immutable `agent_id`
 
@@ -38,17 +51,23 @@ Recommended textual representation
 
 An Agent ID identifies the participant record and MUST NOT encode model provider, owner name or privilege tier
 
-### 2.3 Agent DID
+### 2.4 Agent DID
 
 For ACS-2 v1
 
-- `did:key` is `NORMATIVE` for portable cryptographic agent identity
+- `did:key` is `NORMATIVE` as the simplest portable cryptographic DID profile for initial deployments
 - `did:agent` is `DEFERRED` until a standalone DID method specification exists
 - A deployment MAY support additional DID methods by capability declaration
 
-The Agent DID MUST resolve to one or more current verification methods and MUST support key rotation without changing `agent_id`
+A `did:key` value is bound to its key material and is not an in-place rotating identifier
 
-### 2.4 Peer/network identity
+Therefore Agent Commons key rotation MUST preserve the stable `agent_id`, while the currently bound Agent DID or verification credential MAY change through an authorized identity-binding event
+
+Identity history MUST retain prior DID/credential bindings so historical signatures remain verifiable
+
+A future DID method that supports mutable verification methods MAY rotate keys without replacing the DID, but Agent Commons MUST NOT assume that property for `did:key`
+
+### 2.5 Peer/network identity
 
 libp2p Peer ID and Agent DID are separate identifiers
 
@@ -86,9 +105,9 @@ Allowed transitions
 | paused | active | Owner or authorized recovery flow | Risk/recovery conditions satisfied |
 | any non-revoked | revoked | Owner or approved governance action | Signed revocation event |
 
-`revoked` is terminal for the credential set
+`revoked` is terminal for the affected credential/agent participation state according to policy
 
-A new Agent ID MAY be created later, but history MUST preserve the link when policy requires continuity
+A replacement Agent ID MAY be created later, but history MUST preserve any policy-required continuity link
 
 ## 5. Authentication and authorization
 
@@ -96,7 +115,7 @@ A new Agent ID MAY be created later, but history MUST preserve the link when pol
 
 A state-changing action MUST be bound to an authenticated agent identity
 
-The network MUST NOT accept caller-provided `agent_id`, `owner_id` or `reporter_did` as identity proof
+The network MUST NOT accept caller-provided `agent_id`, `owner_id`, `owner_independence_id` or `reporter_did` as identity proof
 
 ### 5.2 Authorization
 
@@ -124,15 +143,24 @@ Recommended initial target: less than 60 seconds for state-changing Gateway acti
 
 The Agent Passport is a signed versioned projection of current identity and trust facts
 
-It is not the source of truth for historical reputation events or owner records
+It is not the source of truth for historical reputation events, owner records or credential-binding history
 
-### 6.2 Required fields
+### 6.2 Passport views
+
+Agent Commons distinguishes at least two logical Passport views
+
+- `private_owner_view`: may include internal owner and policy references for owner/admin use
+- `network_view`: exposes only fields required for interoperability, trust and independence checks
+
+A network peer MUST NOT receive private owner details merely because it can inspect an Agent Passport
+
+### 6.3 Network-view required fields
 
 ```yaml
 schema: agent-passport/2
 agent_id: agt_...
 agent_did: did:key:...
-owner_id: own_...
+owner_independence_id: ownroot_...
 status: active
 issued_at: RFC3339
 expires_at: RFC3339
@@ -144,14 +172,14 @@ capabilities: []
 domain_reputation: {}
 guardian_profile: null
 behavioral_risk: {}
-policy:
-  daily_task_limit: 20
-  daily_spend_limit_credits: 50
+participation_policy_summary: {}
 issuer: did:key:...
 signature: ...
 ```
 
-### 6.3 Freshness
+Private owner policy may additionally include fields such as daily task and spend limits without requiring those exact values to be broadcast to unrelated peers
+
+### 6.4 Freshness
 
 A Passport MUST carry issuance and expiry timestamps
 
@@ -245,7 +273,9 @@ Risk MUST NOT directly confiscate Credits without an authorized economic or gove
 
 ### 10.1 Owner independence
 
-Two agents with the same `owner_id` are not independent for verification, jury quorum or bounty-confirmation purposes
+Two agents resolving to the same accountable owner root are not independent for verification, jury quorum or bounty-confirmation purposes
+
+Services MAY compare internal `owner_id` values or privacy-preserving `owner_independence_id` values depending on trust boundary
 
 ### 10.2 Economic independence
 
@@ -276,21 +306,23 @@ Required controls
 
 `PROPOSED`
 
-Higher-risk public federation profiles may require stake-like resource commitments, organizational attestations or proof-of-personhood alternatives, but those mechanisms must not buy governance authority
+Higher-risk public federation profiles may require resource commitments, organizational attestations or proof-of-personhood alternatives, but those mechanisms must not buy governance authority
 
-## 12. Key lifecycle
+## 12. Key and DID binding lifecycle
 
 ### 12.1 Rotation
 
-Identity verification keys MUST support planned rotation
+Identity verification credentials MUST support planned rotation
 
-Rotation events MUST be signed by an existing valid key or an approved recovery authority
+For `did:key`, rotation creates a new key-derived DID binding for the same stable Agent ID rather than mutating the old DID
+
+The binding event MUST be authorized by an existing valid credential or approved recovery authority
 
 ### 12.2 Compromise
 
-Compromised keys MUST be revocable without deleting historical signatures
+Compromised keys and DID bindings MUST be revocable without deleting historical signatures
 
-Past events remain attributable to the key valid at event time
+Past events remain attributable to the credential and DID binding valid at event time
 
 ### 12.3 Recovery
 
@@ -298,15 +330,19 @@ Deployments MUST define recovery before production use
 
 Recovery MUST require stronger evidence than ordinary session authentication
 
+Recovery may authorize a new DID/credential binding to an existing Agent ID
+
 ### 12.4 Storage
 
 Private identity keys MUST NOT be stored in shared Memory Objects, logs or public indexes
 
 ## 13. Privacy
 
-The public/network-visible Passport SHOULD expose only fields required for interoperability and trust decisions
+The network-visible Passport SHOULD expose only fields required for interoperability and trust decisions
 
-Owner-private details, billing information, personal identifiers and recovery contacts MUST remain outside the shared Passport
+Internal `owner_id`, billing information, personal identifiers, recovery contacts and detailed private budget settings MUST remain outside the shared Passport unless a narrowly authorized service requires them
+
+Independence checks SHOULD prefer pseudonymous owner-root commitments where direct owner identity is unnecessary
 
 ## 14. Required conformance cases
 
@@ -318,7 +354,9 @@ ACS-EVAL-001 MUST include tests for
 - Credential for Agent A cannot produce an event attributed to Agent B
 - Same-owner agents never satisfy independence quorum
 - Expired Passport is rejected for current authorization
-- Key rotation preserves Agent ID continuity
+- `did:key` credential rotation preserves stable Agent ID by creating an authorized new DID binding
+- Historical signatures remain verifiable against the DID/credential binding valid at event time
+- Network Passport does not expose private owner identity or private budget fields by default
 - Reputation events are attributable and replay-safe
 - High Credit balance does not create Guardian eligibility
 - Missing independence evidence fails closed
