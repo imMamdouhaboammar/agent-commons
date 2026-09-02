@@ -8,7 +8,7 @@
 
 Agent Commons must be able to prove protocol claims with repeatable evidence
 
-This specification defines conformance suites, safety gates, economic invariants, federation tests and release certification profiles
+This specification defines conformance suites, safety gates, data/state invariants, policy behavior, economic invariants, federation tests and release certification profiles
 
 It does not claim that the current repository already passes these gates
 
@@ -34,7 +34,7 @@ One evidence class does not substitute for another
 
 Purpose
 
-- Validate schemas, state-machine definitions and cross-spec consistency
+- Validate schemas, state-machine definitions, authority classes, policy boundaries and cross-spec consistency
 
 Required before implementation is considered contract-bound
 
@@ -46,8 +46,9 @@ Covers
 - MCP local interface
 - Request lifecycle
 - Local persistence adapter
-- Basic Memory CIDs
+- Basic Memory CIDs/publication records
 - Internal ledger invariants
+- Policy version references
 
 No decentralization claim
 
@@ -82,6 +83,7 @@ Adds
 - Provider discovery
 - Replication/repair
 - Signed gossip
+- Restricted-Memory disclosure tests
 - Partition/reconciliation tests
 
 ### C5: Production Federation
@@ -108,6 +110,8 @@ Before C0 passes
 - Every `MUST` maps to a requirement ID or test family
 - No two normative docs define conflicting state transitions
 - No hard-coded policy value is presented as constitutional unless explicitly ratified
+- Data authority class is defined for persistent/projection state
+- Economically/governance-significant workflows define policy snapshot semantics
 - Deferred features are not required by an earlier certification profile
 
 ## 5. Identity and trust suite
@@ -134,11 +138,15 @@ Expired Passport cannot satisfy current authorization
 
 ### ID-005 Same-owner independence
 
-Two agents under one owner never satisfy independent verification/jury quorum
+Two agents under one accountable owner root never satisfy independent verification/jury quorum
 
-### ID-006 Key rotation
+### ID-006 `did:key` rotation semantics
 
-Key rotation preserves Agent ID and historical signature attribution
+An authorized credential rotation may bind a new key-derived DID to the same stable Agent ID and historical signatures remain verifiable against the prior DID/credential binding
+
+### ID-007 Passport privacy
+
+Network-view Passport exposes only pseudonymous owner-independence data required for trust decisions and does not expose private owner identity, recovery contacts or private budget fields by default
 
 ## 6. Intelligence Exchange suite
 
@@ -174,11 +182,11 @@ Contradiction creates new lineage and does not mutate historical content in plac
 
 ### MEM-001 Canonical CID
 
-Equivalent RFC 8785 object content produces the same logical Memory CID
+Equivalent RFC 8785 Memory Body content produces the same logical Memory CID
 
 ### MEM-002 Mutation sensitivity
 
-One semantic object change changes CID
+One semantic Memory Body change changes CID
 
 ### MEM-003 Storage integrity
 
@@ -186,7 +194,7 @@ Corrupted stored bytes fail Storage CID verification
 
 ### MEM-004 Signature integrity
 
-Invalid author signature fails acceptance
+Invalid Memory publication signature fails acceptance
 
 ### MEM-005 Access scope
 
@@ -211,6 +219,14 @@ Under-replication creates repair work and restored replica verifies correct CID
 ### MEM-010 Partition
 
 Partition does not fabricate unavailable quorum or falsely claim complete replication
+
+### MEM-011 Non-circular publication signing
+
+Publication signature is not part of the canonical bytes hashed to form `memory_cid`, and the signature verifies a domain-separated message that commits to the computed CID and schema version
+
+### MEM-012 Restricted logical CID disclosure
+
+An opaque provider/relay outside a restricted Memory reader set can route/store by Storage CID or safe opaque reference without receiving the plaintext-derived logical Memory CID
 
 ## 8. Guardian suite
 
@@ -268,7 +284,7 @@ Concurrent spends cannot produce negative available balance
 
 ### ECO-003 Escrow atomicity
 
-Request does not become reward-bearing if escrow hold fails
+Request does not become reward-bearing if escrow hold fails unless an explicit recoverable pending saga state exists
 
 ### ECO-004 Settlement idempotency
 
@@ -298,7 +314,67 @@ Credit issuance is distinguishable from transfer and references authorized issua
 
 Changing Credit balance alone does not change jury eligibility
 
-## 10. Interface suite
+## 10. Data and state suite
+
+### DATA-001 Idempotent same-input retry
+
+Same logical command, same idempotency key and same normalized input produces one logical side effect and stable result semantics
+
+### DATA-002 Idempotency conflict
+
+Same idempotency key with materially different normalized input is rejected
+
+### DATA-003 Optimistic/stale state conflict
+
+A stale aggregate version cannot overwrite a newer Request, Agent authorization or Governance Case state
+
+### DATA-004 Authority versus projection
+
+Deleting/rebuilding a Passport, reputation projection or search index does not delete or alter the authoritative identity/event/Memory data from which it is derived
+
+### DATA-005 Immutable evidence history
+
+Later Request/Case status changes do not mutate historical Memory Bodies, Evidence Objects, contributions, verifications or signed votes
+
+### DATA-006 Recovery policy references
+
+Restored authoritative state can resolve the policy version governing historical settlements and verdicts
+
+## 11. Policy suite
+
+### POL-001 Normative invariant override rejection
+
+A policy package attempting to make same-owner actors independent, make Guardian report submission payable immediately, or otherwise violate a normative invariant is rejected
+
+### POL-002 Workflow policy snapshot
+
+Paid Request and Guardian Case record the exact economic/quorum policy version used
+
+### POL-003 Historical pinning
+
+Activating a new reward policy does not silently change terms of already accepted work pinned to an older policy
+
+### POL-004 Protocol compatibility
+
+Policy package outside the node's supported protocol compatibility range is rejected
+
+### POL-005 Fail-closed policy validation
+
+Invalid security/economic policy does not fall back to a broader-permission hidden default
+
+### POL-006 Immutable rollback history
+
+Policy rollback activates a compatible immutable prior/new corrective policy while preserving activation history
+
+### POL-007 Owner tightening only
+
+Owner policy may reduce spend/participation/sharing but cannot grant authority prohibited by active network policy
+
+### POL-008 Assurance honesty
+
+A deployment cannot advertise a decentralization/durability/governance assurance profile that its active policy and operator set do not satisfy
+
+## 12. Interface suite
 
 ### API-001 Capability negotiation
 
@@ -324,7 +400,7 @@ If dotted and underscore tool aliases are exposed, both enforce identical behavi
 
 Error responses contain no raw credential fixture
 
-## 11. Security adversarial suite
+## 13. Security adversarial suite
 
 ### SEC-001 Direct prompt injection
 
@@ -366,7 +442,7 @@ Guardian cannot self-confirm report or self-pay bounty
 
 Public Governance summary does not expose restricted exploit payload
 
-## 12. Persistence and recovery suite
+## 14. Persistence and recovery suite
 
 ### DR-001 Restart persistence
 
@@ -388,7 +464,7 @@ Memory manifests recover and still verify available storage blocks
 
 Historical settlement/verdict can identify the exact policy version used
 
-## 13. Federation suite
+## 15. Federation suite
 
 A deterministic multi-node harness SHOULD model at least three operators for C4
 
@@ -397,6 +473,7 @@ Cases
 - Peer authentication
 - Provider discovery
 - Non-origin replica retrieval
+- Restricted logical CID non-disclosure to opaque provider
 - Duplicate gossip
 - Peer churn
 - Relay/NAT path where implementation supports it
@@ -406,7 +483,7 @@ Cases
 - Rejoin/reconciliation
 - Revocation propagation
 
-## 14. Economic simulation suite
+## 16. Economic simulation suite
 
 Before C5 the project SHOULD model
 
@@ -432,7 +509,7 @@ Simulation output should include
 
 No economic policy should be called stable based only on one hand-picked example
 
-## 15. Performance and SLO evidence
+## 17. Performance and SLO evidence
 
 Performance requirements become release-blocking only after the deployment profile declares SLO targets
 
@@ -448,7 +525,7 @@ Measurements SHOULD cover
 - Replica repair time
 - Revocation propagation
 
-## 16. Release evidence packet
+## 18. Release evidence packet
 
 Every certification/release candidate should record
 
@@ -457,6 +534,7 @@ Every certification/release candidate should record
 - Schema versions
 - Dependency lock hash
 - Deployment profile
+- Active policy versions
 - Test commands/results
 - Failed/waived cases
 - Security findings
@@ -464,7 +542,7 @@ Every certification/release candidate should record
 - Economic policy version
 - Known limitations
 
-## 17. Gate policy
+## 19. Gate policy
 
 A certification profile is `PASS` only when all required cases have fresh relevant evidence
 
@@ -484,7 +562,7 @@ A waiver must identify
 - Expiry
 - Compensating control
 
-## 18. Initial target metrics
+## 20. Initial target metrics
 
 These are `PROPOSED` beta targets, not claims about current implementation
 
@@ -501,7 +579,7 @@ These are `PROPOSED` beta targets, not claims about current implementation
 | Guardian false-positive rate | Measured and reviewed before setting production threshold |
 | Appeal overturn rate | Measured, not gamed toward zero |
 
-## 19. Certification ownership
+## 21. Certification ownership
 
 The team/person implementing a subsystem MAY produce its local evidence
 
