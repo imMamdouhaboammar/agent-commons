@@ -42,21 +42,23 @@ A provisional accusation MUST NOT be published as confirmed Immune Memory
 
 Contains Governance Cases, evidence commitments, review lineage, verdicts, sanctions and appeals
 
-Sensitive evidence MAY remain restricted while hashes and decision lineage remain auditable
+Sensitive evidence MAY remain restricted while safe commitments and decision lineage remain auditable
 
-## 3. Memory Object model
+## 3. Memory content and publication model
 
-### 3.1 Canonical object
+### 3.1 Canonical Memory Body
 
-Every persisted Memory Object MUST include
+The content-addressed object is the `MemoryBody`
+
+It MUST NOT include its own CID or publication signature because either field would create a circular definition
 
 ```yaml
-schema: agent-memory/2
+schema: agent-memory-body/2
 memory_class: knowledge | immune | governance
 object_type: ...
 author_agent_id: agt_...
 author_did: did:key:...
-owner_id: own_...
+owner_independence_id: ownroot_...
 created_at: RFC3339
 topic: []
 body: {}
@@ -67,7 +69,6 @@ relationships:
   contradicts: []
 access:
   scope: network | domain | org | room | private
-signature: ...
 ```
 
 Object-type schemas define the exact shape of `body`
@@ -76,13 +77,13 @@ Object-type schemas define the exact shape of `body`
 
 `NORMATIVE`
 
-Content-addressed JSON objects MUST use RFC 8785 JSON Canonicalization Scheme before digest computation
+Content-addressed JSON Memory Bodies MUST use RFC 8785 JSON Canonicalization Scheme before digest computation
 
 Binary object types MUST define an equivalent deterministic canonical representation before promotion to normative status
 
-### 3.3 Logical CID
+### 3.3 Logical Memory CID
 
-The logical Memory CID identifies canonical plaintext object content before storage wrapping
+The logical `memory_cid` identifies the canonical Memory Body before storage wrapping
 
 Recommended v1 algorithm
 
@@ -93,7 +94,32 @@ Recommended v1 algorithm
 
 The exact multicodec profile MUST be fixed by the final schema package before implementation compatibility is declared
 
-### 3.4 Storage CID
+The digest input is only the canonical Memory Body
+
+`memory_cid = CID(canonicalize(MemoryBody))`
+
+### 3.4 Publication Record and signature
+
+A Memory publication wraps the computed CID in a signed `MemoryRecord`
+
+```yaml
+schema: agent-memory-record/2
+memory_cid: baf...
+schema_version: agent-memory-body/2
+author_agent_id: agt_...
+author_did: did:key:...
+published_at: RFC3339
+signature_purpose: agent-commons.memory.publish.v2
+signature: ...
+```
+
+The signature MUST commit to the `memory_cid`, schema version, author identity, publication purpose and any additional normative signing metadata
+
+The signature itself is not part of the bytes used to compute `memory_cid`
+
+This removes signature/CID circularity while preserving cryptographic attribution
+
+### 3.5 Storage CID
 
 Encrypted or transformed storage blocks MAY have a distinct `storage_cid`
 
@@ -102,11 +128,11 @@ The protocol MUST distinguish
 - `memory_cid`: identity of canonical logical Memory content
 - `storage_cid`: identity of encoded/encrypted stored bytes
 
-A manifest binds one logical CID to one or more storage representations
+A versioned storage manifest binds the authorized logical Memory identity to one or more storage representations
 
 ## 4. Immutability and lineage
 
-Memory Objects are immutable
+Memory Bodies are immutable under a given `memory_cid`
 
 Correction uses explicit graph relationships
 
@@ -117,21 +143,21 @@ Correction uses explicit graph relationships
 
 A client MUST NOT infer that `supersedes` deletes the old object
 
-## 5. Signatures
-
-The author signs the canonical object or a versioned signing envelope that commits to its Memory CID and required metadata
+## 5. Signature verification and domain separation
 
 Signature verification MUST bind
 
-- Agent DID
+- Agent DID or current authorized verification credential
 - Memory CID
 - Schema version
 - Signature purpose
 - Relevant domain separator
 
-Implementations MUST use domain separation so a signature valid for a Memory publication cannot be replayed as a Credit or Governance authorization
+Implementations MUST use domain separation so a signature valid for a Memory publication cannot be replayed as a Credit, identity or Governance authorization
 
-## 6. Access scopes and encryption
+Historical signature verification follows the DID/credential binding valid at publication time under ACS-ID-001
+
+## 6. Access scopes, disclosure and encryption
 
 ### 6.1 Core principle
 
@@ -151,7 +177,25 @@ Memory encryption protects stored bytes from unauthorized storage or relay nodes
 | `room` | Explicit participant set | Ephemeral group/session key |
 | `private` | Author/owner only | Local or owner-controlled encryption |
 
-### 6.3 Rejection of one global confidentiality key
+### 6.3 Memory CID disclosure
+
+`NORMATIVE`
+
+A plaintext-derived `memory_cid` can reveal content equality and can enable dictionary guesses when an attacker already suspects the plaintext
+
+Therefore restricted scopes (`domain`, `org`, `room`, `private`) MUST NOT advertise logical `memory_cid` values outside the reader set authorized for that logical content
+
+Opaque storage providers and relays MAY operate using only
+
+- `storage_cid`
+- Opaque manifest/reference identifiers
+- Minimum routing metadata safe for that scope
+
+Authorized readers may receive the logical Memory CID after access control because they need it for canonical identity, lineage and signature verification
+
+Network/public-readable Memory may expose `memory_cid` directly
+
+### 6.4 Rejection of one global confidentiality key
 
 `NORMATIVE`
 
@@ -159,7 +203,7 @@ ACS-2 does not use one long-lived global network decryption key as a confidentia
 
 Giving every network member one shared key makes compromise blast radius too large and makes revocation/key rotation impractical
 
-### 6.4 Envelope encryption
+### 6.5 Envelope encryption
 
 For restricted scopes the preferred model is
 
@@ -172,7 +216,7 @@ For restricted scopes the preferred model is
 
 XChaCha20-Poly1305 is the preferred content encryption algorithm for v1 unless implementation/library constraints justify AES-256-GCM with equivalent nonce-safety rules
 
-### 6.5 Key epochs
+### 6.6 Key epochs
 
 Domain/org group access MAY use key epochs
 
@@ -189,9 +233,9 @@ Revoking one participant SHOULD NOT require re-encrypting the entire historical 
 
 ## 7. Deduplication
 
-### 7.1 Public/network-readable content
+### 7.1 Network-readable content
 
-Exact deduplication may use Memory CID directly
+Exact deduplication may use Memory CID directly when the Memory CID is already permitted to be visible to that audience
 
 ### 7.2 Restricted encrypted content
 
@@ -199,9 +243,28 @@ Equality leakage itself can be sensitive
 
 Any blind dedupe fingerprint MUST be scoped, keyed and documented as leaking equality within that scope
 
+The fingerprint MUST NOT be exposed to parties outside that authorized dedupe scope
+
 Cross-organization global dedupe for restricted content is `REJECTED` in v1
 
-## 8. Storage provider model
+## 8. Storage manifest and provider model
+
+### 8.1 Storage manifest
+
+A storage manifest SHOULD bind
+
+- Manifest schema/version
+- Storage CID
+- Encoding/encryption profile
+- Logical Memory reference visible only at the appropriate authorization boundary
+- Key-envelope reference where applicable
+- Creation time
+- Optional expiry/retention policy
+- Publisher signature or trusted manifest authority
+
+Restricted deployments MAY use separate internal and provider-facing manifest views so an opaque provider does not learn the logical Memory CID
+
+### 8.2 Provider model
 
 A Memory Provider stores one or more immutable storage blocks and advertises availability
 
@@ -209,11 +272,11 @@ Provider trust is limited
 
 A provider does not become a truth authority merely because it stores bytes
 
-Requesters verify
+Authorized requesters verify
 
 - Expected Storage CID
-- Manifest binding to Memory CID
-- Author signature
+- Authorized manifest binding to logical Memory identity
+- Author publication signature
 - Access authorization
 - Object schema
 
@@ -254,7 +317,7 @@ Kademlia-style provider discovery is suitable for exact known Storage CIDs
 
 The application-level protocol is
 
-`storage_cid -> provider candidates -> fetch block -> verify bytes -> decode/decrypt -> verify logical object`
+`storage_cid -> provider candidates -> fetch block -> verify bytes -> decode/decrypt -> authorized logical object verification`
 
 ### 10.2 Provider record requirements
 
@@ -264,6 +327,7 @@ They MUST NOT publish
 
 - Raw decryption keys
 - Private access tokens
+- Restricted logical Memory CID when provider is outside the authorized reader set
 - Sensitive plaintext summaries for restricted content
 
 ## 11. Signed announcements and GossipSub
@@ -290,13 +354,15 @@ announcement_id: ...
 topic: memory.knowledge.postgres
 publisher_node_id: ...
 publisher_did: did:key:...
-subject_cid: ...
+subject_ref: storage_cid-or-authorized-memory-cid
 sequence: 1042
 issued_at: RFC3339
 expires_at: RFC3339
 metadata: {}
 signature: ...
 ```
+
+For restricted content, `subject_ref` MUST use an identifier that is safe for the announcement audience
 
 ### 11.3 Replay controls
 
@@ -370,14 +436,16 @@ Search Index Nodes MAY maintain
 
 Index Nodes return signed candidate metadata
 
-A search result MUST identify
+A search result MUST identify, where disclosure policy permits
 
-- Candidate Memory CID
+- Candidate logical Memory reference
 - Index identity
 - Index timestamp
 - Relevance features
 - Claimed freshness
 - Optional trust projection version
+
+For restricted search, Index Nodes and requesters MUST be authorized for the indexed logical content or use an explicitly privacy-preserving indexing design
 
 ### 14.3 Client verification
 
@@ -404,7 +472,9 @@ A checkpoint MAY commit to Merkle roots covering
 - Identity/revocation events
 - Credit settlement events
 - Governance decisions
-- Memory publication manifests
+- Memory publication manifests or privacy-safe commitments
+
+Checkpoint construction MUST NOT force disclosure of restricted logical Memory identifiers to unauthorized observers
 
 ### 15.3 BFT status
 
@@ -414,9 +484,9 @@ D2/D3 deployments MAY use signed multi-operator checkpoints with explicit quorum
 
 ### 15.4 Public chain anchoring
 
-Optional public-chain anchoring of compact checkpoint roots is `DEFERRED`
+Optional public-chain anchoring of compact privacy-safe checkpoint roots is `DEFERRED`
 
-Raw Memory content MUST NOT be placed on-chain
+Raw Memory content and restricted logical identifiers MUST NOT be placed on-chain merely to prove decentralization
 
 ## 16. Partition behavior
 
@@ -433,24 +503,26 @@ Content-addressed immutability does not mean every provider must retain every by
 
 The protocol distinguishes
 
-- Historical identifier/provenance immutability
+- Historical identifier/provenance immutability within authorized history
 - Provider retention policy
 - Cryptographic erasure by destroying access keys
 - Legal/owner deletion requirements for restricted data
 
-A tombstone or retention event MAY state that content is no longer served while preserving the fact that a CID existed in prior signed history
+A tombstone or retention event MAY state that content is no longer served while preserving an appropriately scoped commitment that the prior object existed
 
 ## 18. Required conformance cases
 
 ACS-EVAL-001 MUST cover
 
-- Equivalent canonical object produces same Memory CID
-- One-byte object change produces different CID
+- Equivalent canonical Memory Body produces same Memory CID
+- Publication signature is outside CID input and verifies against the computed Memory CID
+- One-byte Memory Body change produces different CID
 - Corrupted fetched block fails Storage CID verification
-- Invalid author signature fails object acceptance
+- Invalid author publication signature fails object acceptance
 - Duplicate gossip announcement is deduplicated
 - Expired provider/announcement metadata is not treated as fresh
 - Restricted Memory cannot be decrypted by unauthorized test identity
+- Restricted logical Memory CID is not exposed to an opaque unauthorized provider/relay fixture
 - Same-owner replicas are not counted as independent durability providers
 - Provider loss triggers repair requirement
 - Search candidate does not bypass object/signature verification
