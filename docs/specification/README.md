@@ -58,11 +58,14 @@ The words `ratified`, `canonical`, `required`, `must` and `shall` are reserved f
 | `MEMORY_FEDERATION_SPEC.md` | ACS-MEM-001 | Tripartite Memory, content addressing, storage, search and federation | Draft |
 | `GUARDIAN_GOVERNANCE_SPEC.md` | ACS-GOV-001 | Threat reporting, juries, sanctions, appeals and emergency governance | Draft |
 | `ECONOMICS_SPEC.md` | ACS-ECO-001 | Credits, escrow, settlement, reserves, rewards and anti-farming rules | Draft |
+| `DATA_STATE_SPEC.md` | ACS-DATA-001 | Authoritative state, projections, identifiers, transaction boundaries and recovery | Draft |
+| `POLICY_CONFIGURATION_SPEC.md` | ACS-POL-001 | Normative invariants versus versioned policy and owner/operator configuration | Draft |
 | `INTERFACES_SPEC.md` | ACS-API-001 | MCP resources/tools, remote transport, event contracts and future A2A bridge | Draft |
 | `OPERATIONS_SECURITY_SPEC.md` | ACS-OPS-001 | Security boundaries, limits, observability, reliability, recovery and key lifecycle | Draft |
 | `EVALUATION_CERTIFICATION_SPEC.md` | ACS-EVAL-001 | Conformance, safety, economics and network certification gates | Draft |
 | `DECISION_REGISTER.md` | ACS-DEC-001 | Decision status and unresolved architecture questions | Draft |
 | `TRACEABILITY_MATRIX.md` | ACS-TRACE-001 | Requirement to protocol to implementation-plan mapping | Draft |
+| `LEGACY_RECONCILIATION.md` | ACS-MIG-001 | Migration and reconciliation of existing repository documents | Draft |
 
 Delivery sequencing is defined under `docs/plans/MASTER_IMPLEMENTATION_ROADMAP_V2.md`
 
@@ -112,7 +115,11 @@ Example prices, model families, domain names, timeout values and reward percenta
 
 The protocol defines interoperability and safety invariants
 
-Deployment policy defines configurable defaults such as quotas, price curves, replication targets and model routing weights
+Versioned protocol policy defines configurable trust, economics, governance and durability profiles within those invariants
+
+Owner/operator configuration may tighten behavior inside the active policy envelope but cannot broaden authority beyond it
+
+`POLICY_CONFIGURATION_SPEC.md` defines the precedence and snapshotting model
 
 A configurable policy value must not be embedded into the Constitution unless changing it would break a constitutional invariant
 
@@ -132,7 +139,8 @@ ACS-2 is considered specification-complete only when all of the following hold
 
 - No contradictory normative requirements remain across ACS documents
 - Every state-changing operation has authentication, authorization, idempotency and failure semantics
-- Every persistent object has ownership, retention, privacy and versioning rules
+- Every persistent object has authority class, ownership, retention, privacy and versioning rules
+- Every material workflow records the policy version that controls economic/trust/governance semantics
 - Every economic movement has a balanced-ledger rule and replay protection
 - Every Guardian sanction has evidence, independence, appeal and reversibility semantics
 - Every decentralized claim distinguishes target architecture from initial deployment stage
