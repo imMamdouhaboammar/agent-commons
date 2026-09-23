@@ -33,7 +33,7 @@ jobs:
             bin docs packages SKILL.md marketplace.json .skills.json install.sh package.json README.md LICENSE
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: release-dist/*
           generate_release_notes: true
