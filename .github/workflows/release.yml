@@ -13,7 +13,7 @@ jobs:
       contents: write
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Bun Runtime
         uses: oven-sh/setup-bun@v2
